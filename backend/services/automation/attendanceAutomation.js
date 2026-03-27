@@ -42,6 +42,9 @@ async function checkAndMarkAbsentees() {
   for (const { user_id, exam_id, exam_title } of pending) {
     try {
       // Only mark absent if not already present (upsert keeps present if already set)
+      // Explicit present-guard before upsert: avoids a write when the record
+      // is already "present" (e.g., student started but DB trigger didn't fire).
+      // The upsert would have been safe too, but this saves a needless DB write.
       const current = await attendanceRepository.findOne(user_id, exam_id);
       if (current && current.status === 'present') {
         // Student somehow already got a present record – skip

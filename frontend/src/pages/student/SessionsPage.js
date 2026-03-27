@@ -2,7 +2,10 @@ import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Card, Alert, Spinner } from '../../components/UI';
 
-const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace('/api', '');
+const _apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_BASE = _apiUrl.endsWith('/api')
+  ? _apiUrl.slice(0, -4)
+  : _apiUrl.replace(/\/api\/.*$/, '');
 
 export default function SessionsPage() {
   const [courses, setCourses] = useState([]);

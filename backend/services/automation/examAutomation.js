@@ -41,7 +41,10 @@ function calculateScore(answers, gradeableQuestions) {
     }
   }
 
-  const score = Math.round((correct / gradeableQuestions.length) * 100 * 100) / 100; // 2 dp
+  // Calculate percentage with 2 decimal places.
+  // e.g. 3/4 correct → Math.round(75.00 * 100) / 100 = 75.00
+  const percentage = (correct / gradeableQuestions.length) * 100;
+  const score = Math.round(percentage * 100) / 100;
   return { score, correct, total: gradeableQuestions.length };
 }
 

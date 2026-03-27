@@ -260,7 +260,7 @@ export default function AdminExamsPage() {
                 <div style={{ marginBottom: '12px' }}>
                   <label style={labelStyle}>Options (one per line)</label>
                   <textarea name="options" value={qForm.options} onChange={handleQChange} rows={4}
-                    placeholder="Option A&#10;Option B&#10;Option C"
+                    placeholder={"Option A\nOption B\nOption C"}
                     style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1.5px solid #d1d5db', fontSize: '0.95rem', boxSizing: 'border-box' }} />
                 </div>
               )}
