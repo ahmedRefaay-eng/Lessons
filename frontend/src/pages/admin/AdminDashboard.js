@@ -40,10 +40,12 @@ export default function AdminDashboard() {
       <h2 style={{ fontSize: '1.2rem', color: '#111827', marginBottom: '16px' }}>Quick Actions</h2>
       <div style={statsGrid}>
         <ActionCard to="/admin/exams" label="📝 Manage Exams" desc="Create, edit, assign exams" color="#7c3aed" />
-        <ActionCard to="/admin/lessons" label="📚 Manage Lessons" desc="Upload and manage lessons" color="#0891b2" />
-        <ActionCard to="/admin/users" label="👥 Manage Users" desc="View and manage students" color="#2563eb" />
-        <ActionCard to="/admin/attendance" label="📋 Attendance" desc="Monitor student attendance" color="#16a34a" />
-        <ActionCard to="/admin/grades" label="📊 Grades" desc="Assign and view grades" color="#d97706" />
+        <ActionCard to="/admin/courses" label="🗂️ Courses" desc="Manage courses" color="#0891b2" />
+        <ActionCard to="/admin/lessons" label="📚 Lessons" desc="Upload and manage lessons" color="#2563eb" />
+        <ActionCard to="/admin/announcements" label="📢 Announcements" desc="Broadcast messages to students" color="#d97706" />
+        <ActionCard to="/admin/users" label="👥 Manage Users" desc="View, create admins, change roles" color="#16a34a" />
+        <ActionCard to="/admin/attendance" label="📋 Attendance" desc="Monitor student attendance" color="#dc2626" />
+        <ActionCard to="/admin/grades" label="📊 Grades" desc="Assign and view grades" color="#7c3aed" />
       </div>
 
       {/* Recent users */}

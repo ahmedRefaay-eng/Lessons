@@ -6,22 +6,26 @@ import { Card, Alert, Spinner } from '../../components/UI';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
-  const [data, setData] = useState({ grades: [], attendance: [], lessons: [] });
+  const [data, setData] = useState({ grades: [], attendance: [], lessons: [], announcements: [], courses: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [gradesRes, attendanceRes, lessonsRes] = await Promise.all([
+        const [gradesRes, attendanceRes, lessonsRes, announcementsRes, coursesRes] = await Promise.all([
           api.get(`/grades/${user.id}`),
           api.get(`/attendance/${user.id}`),
           api.get('/lessons'),
+          api.get('/announcements'),
+          api.get('/courses'),
         ]);
         setData({
           grades: gradesRes.data.grades,
           attendance: attendanceRes.data.attendance,
           lessons: lessonsRes.data.lessons,
+          announcements: announcementsRes.data.announcements,
+          courses: coursesRes.data.courses,
         });
       } catch (err) {
         setError('Failed to load dashboard data.');
@@ -53,21 +57,40 @@ export default function StudentDashboard() {
 
       {error && <Alert type="error">{error}</Alert>}
 
+      {/* Announcements */}
+      {data.announcements.length > 0 && (
+        <div style={{ marginBottom: '24px' }}>
+          <h2 style={{ ...sectionTitle, marginBottom: '12px' }}>📢 Announcements</h2>
+          {data.announcements.slice(0, 3).map((ann) => (
+            <div key={ann.id} style={announcementCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <strong style={{ color: '#1e40af', fontSize: '1rem' }}>{ann.title}</strong>
+                <span style={{ color: '#9ca3af', fontSize: '0.78rem', flexShrink: 0, marginLeft: '12px' }}>
+                  {new Date(ann.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              <p style={{ color: '#374151', margin: '6px 0 0', fontSize: '0.9rem', lineHeight: 1.6 }}>{ann.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Stats */}
       <div style={statsGrid}>
         <StatCard label="Total Exams" value={data.attendance.length} color="#2563eb" icon="📋" />
         <StatCard label="Present" value={presentCount} color="#16a34a" icon="✅" />
         <StatCard label="Absent" value={absentCount} color="#dc2626" icon="❌" />
         <StatCard label="Avg Grade" value={avgGrade ? `${avgGrade}%` : 'N/A'} color="#7c3aed" icon="📊" />
-        <StatCard label="Lessons" value={data.lessons.length} color="#0891b2" icon="📚" />
+        <StatCard label="Courses" value={data.courses.length} color="#0891b2" icon="🗂️" />
       </div>
 
       {/* Quick Links */}
       <div style={statsGrid}>
         <QuickLink to="/exams" label="📝 Start Exam" desc="Access your exams" color="#1e40af" />
-        <QuickLink to="/lessons" label="📚 View Lessons" desc="Study materials" color="#0891b2" />
-        <QuickLink to="/grades" label="📊 My Grades" desc="Check your grades" color="#7c3aed" />
-        <QuickLink to="/attendance" label="📋 Attendance" desc="Attendance record" color="#16a34a" />
+        <QuickLink to="/sessions" label="🗂️ Courses & Sessions" desc="Structured study materials" color="#7c3aed" />
+        <QuickLink to="/lessons" label="📚 Lessons" desc="All lesson materials" color="#0891b2" />
+        <QuickLink to="/grades" label="📊 My Grades" desc="Check your grades" color="#16a34a" />
+        <QuickLink to="/attendance" label="📋 Attendance" desc="Attendance record" color="#d97706" />
       </div>
 
       {/* Recent grades */}
@@ -115,3 +138,4 @@ const statsGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, min
 const sectionTitle = { marginBottom: '16px', color: '#111827', fontSize: '1.1rem' };
 const rowStyle = { display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' };
 const cardBase = { background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', textAlign: 'center' };
+const announcementCard = { background: '#fff', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: '10px', borderLeft: '4px solid #2563eb' };
