@@ -1,0 +1,12 @@
+/**
+ * Wrangler config
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "lessons-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-03-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "upload_source_maps": true
+}
