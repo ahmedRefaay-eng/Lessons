@@ -9,18 +9,32 @@ class ExamService {
     return examRepository.findAll();
   }
 
-  async create({ title, description, date, duration, isActive, createdBy }) {
-    return examRepository.create({ title, description, date, duration, isActive, createdBy });
+  async create({ title, description, date, duration, isActive, createdBy, file }) {
+    let fileUrl = null;
+    let fileName = null;
+    let mimeType = null;
+    if (file) {
+      fileUrl = `/uploads/${file.filename}`;
+      fileName = file.originalname;
+      mimeType = file.mimetype;
+    }
+    return examRepository.create({ title, description, date, duration, isActive, createdBy, fileUrl, fileName, mimeType });
   }
 
-  async update(id, fields) {
+  async update(id, fields, file) {
     const exam = await examRepository.findById(id);
     if (!exam) {
       const err = new Error('Exam not found');
       err.statusCode = 404;
       throw err;
     }
-    return examRepository.update(id, fields);
+    const updateFields = { ...fields };
+    if (file) {
+      updateFields.file_url = `/uploads/${file.filename}`;
+      updateFields.file_name = file.originalname;
+      updateFields.mime_type = file.mimetype;
+    }
+    return examRepository.update(id, updateFields);
   }
 
   async delete(id) {
@@ -100,6 +114,46 @@ class ExamService {
       throw err;
     }
     return examRepository.getExamStudents(examId);
+  }
+
+  // Questions
+  async getQuestions(examId) {
+    const exam = await examRepository.findById(examId);
+    if (!exam) {
+      const err = new Error('Exam not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    return examRepository.getQuestions(examId);
+  }
+
+  async createQuestion({ examId, questionText, questionType, options, correctAnswer, sortOrder }) {
+    const exam = await examRepository.findById(examId);
+    if (!exam) {
+      const err = new Error('Exam not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    return examRepository.createQuestion({ examId, questionText, questionType, options, correctAnswer, sortOrder });
+  }
+
+  async updateQuestion(questionId, fields) {
+    const question = await examRepository.updateQuestion(questionId, fields);
+    if (!question) {
+      const err = new Error('Question not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    return question;
+  }
+
+  async deleteQuestion(questionId) {
+    const deleted = await examRepository.deleteQuestion(questionId);
+    if (!deleted) {
+      const err = new Error('Question not found');
+      err.statusCode = 404;
+      throw err;
+    }
   }
 }
 

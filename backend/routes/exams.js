@@ -10,10 +10,10 @@ router.use(authenticate);
 // GET /exams — list all exams (authenticated)
 router.get('/', examController.getAll);
 
-// POST /exams — create exam (admin only)
+// POST /exams — create exam (admin only, optional file upload)
 router.post('/', requireAdmin, examController.create);
 
-// PUT /exams/:id — update exam (admin only)
+// PUT /exams/:id — update exam (admin only, optional file upload)
 router.put('/:id', requireAdmin, examController.update);
 
 // DELETE /exams/:id — delete exam (admin only)
@@ -27,5 +27,20 @@ router.post('/:id/assign', requireAdmin, examController.assignStudents);
 
 // GET /exams/:id/students — get students assigned to exam (admin)
 router.get('/:id/students', requireAdmin, examController.getExamStudents);
+
+// POST /exams/:id/submit — student submits answers (auto-graded)
+router.post('/:id/submit', examController.submitExam);
+
+// GET /exams/:id/questions — get questions for an exam
+router.get('/:id/questions', examController.getQuestions);
+
+// POST /exams/:id/questions — add question to exam (admin)
+router.post('/:id/questions', requireAdmin, examController.createQuestion);
+
+// PUT /exams/:id/questions/:questionId — update question (admin)
+router.put('/:id/questions/:questionId', requireAdmin, examController.updateQuestion);
+
+// DELETE /exams/:id/questions/:questionId — delete question (admin)
+router.delete('/:id/questions/:questionId', requireAdmin, examController.deleteQuestion);
 
 module.exports = router;

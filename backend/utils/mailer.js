@@ -12,7 +12,10 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * Send an email
+ * Send an email directly via SMTP.
+ * This is the low-level transport used by both the queue worker and the
+ * direct-send fallback.  It is NOT meant to be called from business logic –
+ * use the higher-level helpers below (which route through the queue).
  */
 async function sendEmail({ to, subject, html, text }) {
   try {
@@ -31,10 +34,17 @@ async function sendEmail({ to, subject, html, text }) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Queue-aware helpers
+// Each helper builds the HTML then pushes a job to the email queue.
+// When Redis is unavailable the queue falls back to direct send.
+// ─────────────────────────────────────────────────────────────
+
 /**
  * Send student ID after registration
  */
-async function sendStudentIdEmail({ email, studentId, firstName }) {
+async function sendStudentIdEmail({ email, studentId, firstName, dashboardUrl }) {
+  const loginUrl = dashboardUrl || (process.env.APP_URL || 'http://localhost:3000');
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2563eb;">Welcome to Student Management System</h2>
@@ -44,12 +54,15 @@ async function sendStudentIdEmail({ email, studentId, firstName }) {
         ${studentId}
       </div>
       <p><strong>Important:</strong> Keep this ID safe. You will need it to access exams.</p>
-      <p>Login at: <a href="${process.env.APP_URL || 'http://localhost:3000'}">${process.env.APP_URL || 'http://localhost:3000'}</a></p>
+      <p>Access your personalised dashboard here:<br>
+        <a href="${loginUrl}" style="color: #2563eb;">${loginUrl}</a>
+      </p>
       <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
       <p style="color: #64748b; font-size: 12px;">This is an automated message. Please do not reply.</p>
     </div>
   `;
-  return sendEmail({
+  const { enqueue } = require('./emailQueue');
+  return enqueue('welcome-email', {
     to: email,
     subject: 'Your Student ID - Registration Successful',
     html,
@@ -83,11 +96,34 @@ async function sendAbsenceAlertEmail({ adminEmails, studentName, studentId, abse
       <p style="color: #64748b; font-size: 12px;">This is an automated message. Please do not reply.</p>
     </div>
   `;
-  return sendEmail({
+  const { enqueue } = require('./emailQueue');
+  return enqueue('absence-alert', {
     to: adminEmails.join(', '),
     subject: `⚠️ Absence Alert: ${studentName} has ${absenceCount} absences`,
     html,
   });
 }
 
-module.exports = { sendEmail, sendStudentIdEmail, sendAbsenceAlertEmail };
+/**
+ * Send announcement broadcast email to a single recipient
+ */
+async function sendAnnouncementEmail({ email, firstName, title, body }) {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">📢 New Announcement</h2>
+      <p>Hello ${firstName || 'Student'},</p>
+      <div style="background: #f1f5f9; border-left: 4px solid #2563eb; padding: 16px; margin: 20px 0; border-radius: 4px;">
+        <h3 style="margin: 0 0 10px; color: #1e40af;">${title}</h3>
+        <p style="margin: 0; color: #374151; white-space: pre-wrap;">${body}</p>
+      </div>
+      <p>Login to view more details: <a href="${process.env.APP_URL || 'http://localhost:3000'}">${process.env.APP_URL || 'http://localhost:3000'}</a></p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+      <p style="color: #64748b; font-size: 12px;">This is an automated message. Please do not reply.</p>
+    </div>
+  `;
+  const { enqueue } = require('./emailQueue');
+  return enqueue('announcement', { to: email, subject: `📢 Announcement: ${title}`, html });
+}
+
+module.exports = { sendEmail, sendStudentIdEmail, sendAbsenceAlertEmail, sendAnnouncementEmail };
+

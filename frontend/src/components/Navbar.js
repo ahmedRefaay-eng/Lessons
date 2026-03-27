@@ -23,7 +23,9 @@ export default function Navbar() {
               <>
                 <Link to="/admin" style={styles.link}>Dashboard</Link>
                 <Link to="/admin/exams" style={styles.link}>Exams</Link>
+                <Link to="/admin/courses" style={styles.link}>Courses</Link>
                 <Link to="/admin/lessons" style={styles.link}>Lessons</Link>
+                <Link to="/admin/announcements" style={styles.link}>Announcements</Link>
                 <Link to="/admin/users" style={styles.link}>Users</Link>
                 <Link to="/admin/attendance" style={styles.link}>Attendance</Link>
                 <Link to="/admin/grades" style={styles.link}>Grades</Link>
@@ -32,6 +34,7 @@ export default function Navbar() {
               <>
                 <Link to="/dashboard" style={styles.link}>Dashboard</Link>
                 <Link to="/exams" style={styles.link}>Exams</Link>
+                <Link to="/sessions" style={styles.link}>Courses</Link>
                 <Link to="/lessons" style={styles.link}>Lessons</Link>
                 <Link to="/grades" style={styles.link}>Grades</Link>
                 <Link to="/attendance" style={styles.link}>Attendance</Link>

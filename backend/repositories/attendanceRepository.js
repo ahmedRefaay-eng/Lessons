@@ -43,6 +43,14 @@ class AttendanceRepository {
     return parseInt(rows[0].count, 10);
   }
 
+  async findOne(userId, examId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM attendance WHERE user_id = $1 AND exam_id = $2',
+      [userId, examId]
+    );
+    return rows[0] || null;
+  }
+
   async findAll() {
     const { rows } = await pool.query(
       `SELECT a.*, u.email, u.student_id, u.first_name, u.last_name, e.title AS exam_title

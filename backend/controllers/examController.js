@@ -1,6 +1,7 @@
 const { body, param } = require('express-validator');
 const examService = require('../services/examService');
 const { validate } = require('../middleware/validate');
+const upload = require('../middleware/upload');
 
 const createValidation = [
   body('title').trim().notEmpty().withMessage('Title is required'),
@@ -30,8 +31,9 @@ async function create(req, res, next) {
       description,
       date,
       duration: parseInt(duration, 10),
-      isActive: is_active || false,
+      isActive: is_active === 'true' || is_active === true,
       createdBy: req.user.id,
+      file: req.file || null,
     });
     res.status(201).json({ message: 'Exam created', exam });
   } catch (err) {
@@ -42,7 +44,7 @@ async function create(req, res, next) {
 
 async function update(req, res, next) {
   try {
-    const exam = await examService.update(req.params.id, req.body);
+    const exam = await examService.update(req.params.id, req.body, req.file || null);
     res.json({ message: 'Exam updated', exam });
   } catch (err) {
     if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
@@ -98,12 +100,98 @@ async function getExamStudents(req, res, next) {
   }
 }
 
+// Questions
+async function getQuestions(req, res, next) {
+  try {
+    const questions = await examService.getQuestions(parseInt(req.params.id, 10));
+    res.json({ questions });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
+    next(err);
+  }
+}
+
+async function createQuestion(req, res, next) {
+  try {
+    const { question_text, question_type, options, correct_answer, sort_order } = req.body;
+    const question = await examService.createQuestion({
+      examId: parseInt(req.params.id, 10),
+      questionText: question_text,
+      questionType: question_type || 'text',
+      options: options || null,
+      correctAnswer: correct_answer || null,
+      sortOrder: sort_order ? parseInt(sort_order, 10) : 0,
+    });
+    res.status(201).json({ message: 'Question created', question });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
+    next(err);
+  }
+}
+
+async function updateQuestion(req, res, next) {
+  try {
+    const question = await examService.updateQuestion(parseInt(req.params.questionId, 10), req.body);
+    res.json({ message: 'Question updated', question });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
+    next(err);
+  }
+}
+
+async function deleteQuestion(req, res, next) {
+  try {
+    await examService.deleteQuestion(parseInt(req.params.questionId, 10));
+    res.json({ message: 'Question deleted' });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
+    next(err);
+  }
+}
+
+const createQuestionValidation = [
+  body('question_text').trim().notEmpty().withMessage('Question text is required'),
+  body('question_type').optional().isIn(['text', 'mcq', 'true_false']).withMessage('Invalid question type'),
+];
+
+// Submit exam answers (student – auto-graded)
+async function submitExam(req, res, next) {
+  try {
+    const examId = parseInt(req.params.id, 10);
+    const { answers } = req.body; // array of { questionId, answer }
+
+    if (!Array.isArray(answers)) {
+      return res.status(422).json({ message: 'answers must be an array of { questionId, answer }' });
+    }
+
+    const { onExamSubmitted } = require('../services/automation/examAutomation');
+    const result = await onExamSubmitted({ userId: req.user.id, examId, answers });
+
+    res.json({
+      message: 'Exam submitted successfully',
+      score: result.score,
+      correct: result.correct,
+      total: result.total,
+      grade: result.grade,
+      autoGraded: result.score !== null,
+    });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
+    next(err);
+  }
+}
+
 module.exports = {
   getAll,
-  create: [createValidation, validate, create],
-  update,
+  create: [upload.single('file'), createValidation, validate, create],
+  update: [upload.single('file'), update],
   remove,
   startExam: [startValidation, validate, startExam],
   assignStudents,
   getExamStudents,
+  getQuestions,
+  createQuestion: [createQuestionValidation, validate, createQuestion],
+  updateQuestion,
+  deleteQuestion,
+  submitExam,
 };

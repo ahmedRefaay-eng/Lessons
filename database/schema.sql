@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS exams (
     date        TIMESTAMP WITH TIME ZONE NOT NULL,
     duration    INTEGER NOT NULL CHECK (duration > 0),  -- minutes
     is_active   BOOLEAN NOT NULL DEFAULT FALSE,
+    file_url    VARCHAR(500),
+    file_name   VARCHAR(255),
+    mime_type   VARCHAR(100),
     created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -53,13 +56,15 @@ CREATE TABLE IF NOT EXISTS exam_access (
     allowed          BOOLEAN NOT NULL DEFAULT FALSE,
     entered_with_id  BOOLEAN NOT NULL DEFAULT FALSE,
     started_at       TIMESTAMP WITH TIME ZONE,
+    submitted_at     TIMESTAMP WITH TIME ZONE,
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, exam_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_exam_access_user_id  ON exam_access(user_id);
-CREATE INDEX IF NOT EXISTS idx_exam_access_exam_id  ON exam_access(exam_id);
+CREATE INDEX IF NOT EXISTS idx_exam_access_user_id      ON exam_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_exam_access_exam_id      ON exam_access(exam_id);
+CREATE INDEX IF NOT EXISTS idx_exam_access_submitted_at ON exam_access(submitted_at) WHERE submitted_at IS NOT NULL;
 
 -- =============================================
 -- Attendance Table
@@ -93,6 +98,94 @@ CREATE TABLE IF NOT EXISTS grades (
 
 CREATE INDEX IF NOT EXISTS idx_grades_user_id ON grades(user_id);
 CREATE INDEX IF NOT EXISTS idx_grades_exam_id ON grades(exam_id);
+
+-- =============================================
+-- Courses Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS courses (
+    id          SERIAL PRIMARY KEY,
+    title       VARCHAR(255) NOT NULL,
+    description TEXT,
+    subject     VARCHAR(100),
+    sort_order  INTEGER NOT NULL DEFAULT 0,
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_courses_is_published ON courses(is_published);
+CREATE INDEX IF NOT EXISTS idx_courses_created_by   ON courses(created_by);
+
+-- =============================================
+-- Sessions Table (structured lessons per course)
+-- =============================================
+CREATE TABLE IF NOT EXISTS sessions (
+    id           SERIAL PRIMARY KEY,
+    course_id    INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+    title        VARCHAR(255) NOT NULL,
+    video_url    VARCHAR(1000),
+    notes        TEXT,
+    file_url     VARCHAR(500),
+    file_name    VARCHAR(255),
+    mime_type    VARCHAR(100),
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_course_id    ON sessions(course_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_is_published ON sessions(is_published);
+CREATE INDEX IF NOT EXISTS idx_sessions_sort_order   ON sessions(sort_order);
+
+-- =============================================
+-- Announcements Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS announcements (
+    id           SERIAL PRIMARY KEY,
+    title        VARCHAR(255) NOT NULL,
+    body         TEXT NOT NULL,
+    is_published BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at   TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcements_is_published ON announcements(is_published);
+CREATE INDEX IF NOT EXISTS idx_announcements_created_at   ON announcements(created_at);
+
+-- =============================================
+-- Exam Questions Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS exam_questions (
+    id             SERIAL PRIMARY KEY,
+    exam_id        INTEGER NOT NULL REFERENCES exams(id) ON DELETE CASCADE,
+    question_text  TEXT NOT NULL,
+    question_type  VARCHAR(20) NOT NULL DEFAULT 'text' CHECK (question_type IN ('text', 'mcq', 'true_false')),
+    options        JSONB,
+    correct_answer TEXT,
+    sort_order     INTEGER NOT NULL DEFAULT 0,
+    created_at     TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_exam_questions_exam_id    ON exam_questions(exam_id);
+CREATE INDEX IF NOT EXISTS idx_exam_questions_sort_order ON exam_questions(sort_order);
+
+-- =============================================
+-- Session Progress Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS session_progress (
+    id           SERIAL PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id   INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    completed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_progress_user_id    ON session_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_progress_session_id ON session_progress(session_id);
 
 -- =============================================
 -- Lessons Table
@@ -156,4 +249,16 @@ CREATE OR REPLACE TRIGGER update_exam_access_updated_at
 
 CREATE OR REPLACE TRIGGER update_lessons_updated_at
     BEFORE UPDATE ON lessons
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_courses_updated_at
+    BEFORE UPDATE ON courses
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_sessions_updated_at
+    BEFORE UPDATE ON sessions
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE OR REPLACE TRIGGER update_announcements_updated_at
+    BEFORE UPDATE ON announcements
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
