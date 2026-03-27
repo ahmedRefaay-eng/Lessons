@@ -15,6 +15,7 @@ import GradesPage from './pages/student/GradesPage';
 import AttendancePage from './pages/student/AttendancePage';
 import LessonsPage from './pages/student/LessonsPage';
 import SessionsPage from './pages/student/SessionsPage';
+import ExamTakingPage from './pages/student/ExamTakingPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -40,6 +41,7 @@ export default function App() {
           {/* Student routes */}
           <Route path="/dashboard" element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>} />
           <Route path="/exams" element={<ProtectedRoute role="student"><ExamsPage /></ProtectedRoute>} />
+          <Route path="/exams/:examId/take" element={<ProtectedRoute role="student"><ExamTakingPage /></ProtectedRoute>} />
           <Route path="/grades" element={<ProtectedRoute role="student"><GradesPage /></ProtectedRoute>} />
           <Route path="/attendance" element={<ProtectedRoute role="student"><AttendancePage /></ProtectedRoute>} />
           <Route path="/lessons" element={<ProtectedRoute role="student"><LessonsPage /></ProtectedRoute>} />

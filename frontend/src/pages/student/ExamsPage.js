@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { Card, Alert, Spinner, Button, Input, Table } from '../../components/UI';
 
 export default function ExamsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -37,8 +39,10 @@ export default function ExamsPage() {
     setStartError('');
     try {
       const res = await api.post(`/exams/${selectedExam.id}/start`, { student_id: studentIdInput.trim() });
-      setSuccessMsg(`✅ ${res.data.message}! Exam "${selectedExam.title}" started.`);
+      setSuccessMsg(`✅ ${res.data.message}! Redirecting to exam...`);
       setSelectedExam(null);
+      // Navigate to exam-taking page
+      setTimeout(() => navigate(`/exams/${selectedExam.id}/take`), 800);
     } catch (err) {
       setStartError(err.response?.data?.message || 'Failed to start exam.');
     } finally {

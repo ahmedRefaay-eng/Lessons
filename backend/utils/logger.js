@@ -39,7 +39,7 @@ if (writeToFiles) {
     new winston.transports.File({
       filename: path.join(logDir, 'combined.log'),
       format: jsonFormat,
-      maxsize: 10 * 1024 * 1024, // 10 MB
+      maxSize: 10 * 1024 * 1024, // 10 MB
       maxFiles: 7,
       tailable: true,
     })
@@ -51,7 +51,7 @@ if (writeToFiles) {
       filename: path.join(logDir, 'errors.log'),
       level: 'error',
       format: jsonFormat,
-      maxsize: 10 * 1024 * 1024,
+      maxSize: 10 * 1024 * 1024,
       maxFiles: 14,
       tailable: true,
     })

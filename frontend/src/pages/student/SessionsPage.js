@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import api from '../../services/api';
-import { Card, Alert, Spinner } from '../../components/UI';
+import { Card, Alert, Spinner, Button } from '../../components/UI';
 
 const _apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const API_BASE = _apiUrl.endsWith('/api')
@@ -15,10 +15,29 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
+  const [completedIds, setCompletedIds] = useState(new Set());
+  const [markingComplete, setMarkingComplete] = useState(false);
+
+  const loadProgress = useCallback(async () => {
+    try {
+      const r = await api.get('/session-progress/me');
+      const ids = new Set((r.data.progress || []).map((p) => p.session_id));
+      setCompletedIds(ids);
+    } catch {
+      // Progress is non-critical – ignore errors
+    }
+  }, []);
 
   useEffect(() => {
-    api.get('/courses')
-      .then((r) => setCourses(r.data.courses))
+    Promise.all([
+      api.get('/courses'),
+      api.get('/session-progress/me').catch(() => ({ data: { progress: [] } })),
+    ])
+      .then(([coursesRes, progressRes]) => {
+        setCourses(coursesRes.data.courses);
+        const ids = new Set((progressRes.data.progress || []).map((p) => p.session_id));
+        setCompletedIds(ids);
+      })
       .catch(() => setError('Failed to load courses.'))
       .finally(() => setLoading(false));
   }, []);
@@ -34,6 +53,19 @@ export default function SessionsPage() {
       setError('Failed to load sessions.');
     } finally {
       setSessionsLoading(false);
+    }
+  };
+
+  const handleMarkComplete = async (sessionId) => {
+    if (completedIds.has(sessionId)) return;
+    setMarkingComplete(true);
+    try {
+      await api.post(`/session-progress/${sessionId}/complete`);
+      setCompletedIds((prev) => new Set([...prev, sessionId]));
+    } catch {
+      // Silently ignore – progress is non-critical
+    } finally {
+      setMarkingComplete(false);
     }
   };
 
@@ -92,23 +124,40 @@ export default function SessionsPage() {
             </div>
           )}
 
-          {/* Previous / Next navigation */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
-            {(() => {
-              const idx = sessions.findIndex((s) => s.id === activeSession.id);
-              const prev = sessions[idx - 1];
-              const next = sessions[idx + 1];
-              return (
-                <>
-                  {prev ? (
-                    <button onClick={() => setActiveSession(prev)} style={navBtn}>← {prev.title}</button>
-                  ) : <span />}
-                  {next ? (
-                    <button onClick={() => setActiveSession(next)} style={{ ...navBtn, textAlign: 'right' }}>{next.title} →</button>
-                  ) : <span />}
-                </>
-              );
-            })()}
+          {/* Mark Complete + Previous / Next navigation */}
+          <div style={{ marginTop: '24px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              {completedIds.has(activeSession.id) ? (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', background: '#dcfce7', color: '#15803d', borderRadius: '8px', fontWeight: 700 }}>
+                  ✅ Session Completed
+                </div>
+              ) : (
+                <Button
+                  onClick={() => handleMarkComplete(activeSession.id)}
+                  disabled={markingComplete}
+                  variant="success"
+                >
+                  {markingComplete ? 'Saving...' : '✓ Mark as Complete'}
+                </Button>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              {(() => {
+                const idx = sessions.findIndex((s) => s.id === activeSession.id);
+                const prev = sessions[idx - 1];
+                const next = sessions[idx + 1];
+                return (
+                  <>
+                    {prev ? (
+                      <button onClick={() => setActiveSession(prev)} style={navBtn}>← {prev.title}</button>
+                    ) : <span />}
+                    {next ? (
+                      <button onClick={() => setActiveSession(next)} style={{ ...navBtn, textAlign: 'right' }}>{next.title} →</button>
+                    ) : <span />}
+                  </>
+                );
+              })()}
+            </div>
           </div>
         </Card>
       </div>
@@ -128,28 +177,47 @@ export default function SessionsPage() {
           <Card><p style={{ color: '#6b7280', textAlign: 'center' }}>No sessions available yet.</p></Card>
         ) : (
           <div>
-            {sessions.map((session, i) => (
-              <div
-                key={session.id}
-                onClick={() => setActiveSession(session)}
-                style={sessionRow}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <span style={{ background: '#7c3aed', color: '#fff', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>
-                    {session.sort_order}
-                  </span>
-                  <div>
-                    <div style={{ fontWeight: 600, color: '#111827', fontSize: '1rem' }}>{session.title}</div>
-                    <div style={{ color: '#6b7280', fontSize: '0.85rem', display: 'flex', gap: '12px', marginTop: '2px' }}>
-                      {session.video_url && <span>🎬 Video</span>}
-                      {session.notes && <span>📝 Notes</span>}
-                      {session.file_url && <span>📎 Attachment</span>}
-                    </div>
+            {/* Progress bar */}
+            {(() => {
+              const doneCount = sessions.filter((s) => completedIds.has(s.id)).length;
+              const pct = Math.round((doneCount / sessions.length) * 100);
+              return (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: '#6b7280', fontSize: '0.85rem', marginBottom: '4px' }}>
+                    <span>Progress</span>
+                    <span>{doneCount} / {sessions.length} completed</span>
+                  </div>
+                  <div style={{ background: '#e5e7eb', borderRadius: '999px', height: '8px' }}>
+                    <div style={{ background: '#16a34a', borderRadius: '999px', height: '8px', width: `${pct}%`, transition: 'width 0.3s' }} />
                   </div>
                 </div>
-                <span style={{ color: '#2563eb', fontSize: '1.2rem' }}>›</span>
-              </div>
-            ))}
+              );
+            })()}
+            {sessions.map((session) => {
+              const done = completedIds.has(session.id);
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => setActiveSession(session)}
+                  style={{ ...sessionRow, borderLeft: done ? '4px solid #16a34a' : '4px solid transparent' }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <span style={{ background: done ? '#16a34a' : '#7c3aed', color: '#fff', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0 }}>
+                      {done ? '✓' : session.sort_order}
+                    </span>
+                    <div>
+                      <div style={{ fontWeight: 600, color: '#111827', fontSize: '1rem' }}>{session.title}</div>
+                      <div style={{ color: '#6b7280', fontSize: '0.85rem', display: 'flex', gap: '12px', marginTop: '2px' }}>
+                        {session.video_url && <span>🎬 Video</span>}
+                        {session.notes && <span>📝 Notes</span>}
+                        {session.file_url && <span>📎 Attachment</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{ color: '#2563eb', fontSize: '1.2rem' }}>›</span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
