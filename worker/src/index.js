@@ -1,15 +1,43 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { neon } from "@neondatabase/serverless";
+
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      // allow your frontend to call this API
+      "access-control-allow-origin": "*",
+    },
+  });
+}
 
 export default {
-	async fetch(request, env, ctx) {
-		return new Response("Hello World!");
-	},
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    // basic health check
+    if (url.pathname === "/") {
+      return new Response("Lessons API is running");
+    }
+
+    if (url.pathname === "/api/health") {
+      return json({ ok: true, time: new Date().toISOString() });
+    }
+
+    // DB test endpoint
+    if (url.pathname === "/api/db") {
+      if (!env.DATABASE_URL) {
+        return json(
+          { ok: false, error: "DATABASE_URL secret is not set in Cloudflare" },
+          500
+        );
+      }
+
+      const sql = neon(env.DATABASE_URL);
+      const rows = await sql`SELECT now() as now`;
+      return json({ ok: true, rows });
+    }
+
+    return json({ ok: false, error: "Not found" }, 404);
+  },
 };
