@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Card, Alert, Spinner, Button, Input, Table } from '../../components/UI';
 
-const API_BASE = (process.env.REACT_APP_API_URL || 'http://localhost:5000/api').replace('/api', '');
-
 export default function AdminExamsPage() {
   const [exams, setExams] = useState([]);
   const [users, setUsers] = useState([]);

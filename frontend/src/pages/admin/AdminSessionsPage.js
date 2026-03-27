@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../../services/api';
 import { Card, Alert, Spinner, Button, Input, Table } from '../../components/UI';
@@ -16,13 +16,13 @@ export default function AdminSessionsPage() {
   const [file, setFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const load = () =>
+  const load = useCallback(() =>
     api.get(`/sessions/course/${courseId}`).then((r) => {
       setCourse(r.data.course);
       setSessions(r.data.sessions);
-    });
+    }), [courseId]);
 
-  useEffect(() => { load().catch(() => setError('Failed to load sessions.')).finally(() => setLoading(false)); }, [courseId]);
+  useEffect(() => { load().catch(() => setError('Failed to load sessions.')).finally(() => setLoading(false)); }, [load]);
 
   const resetForm = () => { setForm({ title: '', video_url: '', notes: '', sort_order: '0' }); setFile(null); setEditSession(null); setShowForm(false); };
 

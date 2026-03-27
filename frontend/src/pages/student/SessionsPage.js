@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
 import { Card, Alert, Spinner, Button } from '../../components/UI';
 
@@ -17,16 +17,6 @@ export default function SessionsPage() {
   const [activeSession, setActiveSession] = useState(null);
   const [completedIds, setCompletedIds] = useState(new Set());
   const [markingComplete, setMarkingComplete] = useState(false);
-
-  const loadProgress = useCallback(async () => {
-    try {
-      const r = await api.get('/session-progress/me');
-      const ids = new Set((r.data.progress || []).map((p) => p.session_id));
-      setCompletedIds(ids);
-    } catch {
-      // Progress is non-critical – ignore errors
-    }
-  }, []);
 
   useEffect(() => {
     Promise.all([
