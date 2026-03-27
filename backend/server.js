@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const logger = require('./utils/logger');
+const requestLogger = require('./middleware/requestLogger');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -18,7 +19,10 @@ const courseRoutes = require('./routes/courses');
 const sessionRoutes = require('./routes/sessions');
 const announcementRoutes = require('./routes/announcements');
 const automationRoutes = require('./routes/automation');
+const sessionProgressRoutes = require('./routes/sessionProgress');
 const scheduler = require('./services/automation/scheduler');
+const { startEmailWorker, stopEmailWorker } = require('./utils/emailWorker');
+const { close: closeEmailQueue } = require('./utils/emailQueue');
 
 const app = express();
 
@@ -42,6 +46,11 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use(globalLimiter);
+
+// ─────────────────────────────────────────
+// Request Logging
+// ─────────────────────────────────────────
+app.use(requestLogger);
 
 // ─────────────────────────────────────────
 // Body Parsers
@@ -74,6 +83,7 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api/automation', automationRoutes);
+app.use('/api/session-progress', sessionProgressRoutes);
 
 // ─────────────────────────────────────────
 // 404 Handler
@@ -109,10 +119,52 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 if (require.main === module) {
-  app.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`);
+  const server = app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`, { env: process.env.NODE_ENV });
     // Start automation scheduler
     scheduler.start();
+    // Start BullMQ email worker (no-op if Redis not configured)
+    startEmailWorker();
+  });
+
+  // ─────────────────────────────────────────
+  // Graceful Shutdown
+  // ─────────────────────────────────────────
+  const shutdown = async (signal) => {
+    logger.info(`${signal} received – shutting down gracefully`);
+
+    server.close(async () => {
+      logger.info('HTTP server closed');
+      try {
+        scheduler.stop();
+        await stopEmailWorker();
+        await closeEmailQueue();
+        const pool = require('./config/database');
+        await pool.end();
+        logger.info('Database pool closed');
+      } catch (err) {
+        logger.error('Error during shutdown', { error: err.message });
+      }
+      process.exit(0);
+    });
+
+    // Force exit if graceful shutdown takes too long
+    setTimeout(() => {
+      logger.error('Graceful shutdown timed out – forcing exit');
+      process.exit(1);
+    }, 15000);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  process.on('uncaughtException', (err) => {
+    logger.error('Uncaught exception', { error: err.message, stack: err.stack });
+    shutdown('uncaughtException');
+  });
+
+  process.on('unhandledRejection', (reason) => {
+    logger.error('Unhandled promise rejection', { reason: String(reason) });
   });
 }
 

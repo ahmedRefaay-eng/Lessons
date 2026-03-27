@@ -3,9 +3,11 @@
  *
  * Triggered when a student submits exam answers.
  * Responsibilities:
+ *  - Validate submission window (exam must be active, not yet closed, not already submitted)
  *  - Auto-calculate grade from answers vs correct_answer in exam_questions
- *  - Upsert result in the grades table
- *  - Ensure attendance is recorded as "present"
+ *  - Upsert result in the Grades table
+ *  - Mark attendance as "present"
+ *  - Prevent re-submission (idempotent guard via submitted_at)
  *  - Trigger absence check after the submission
  */
 
@@ -50,11 +52,12 @@ function calculateScore(answers, gradeableQuestions) {
 
 /**
  * Process a student's exam submission end-to-end:
- *  1. Load gradeable questions for the exam
- *  2. Compute score
- *  3. Persist the grade
- *  4. Confirm attendance = present
- *  5. Trigger post-submission absence check (non-blocking)
+ *  1. Validate: exam active, within time window, not already submitted
+ *  2. Mark exam_access.submitted_at (prevents re-submission)
+ *  3. Load gradeable questions and compute score
+ *  4. Persist the grade
+ *  5. Mark attendance = present
+ *  6. Trigger post-submission absence check (non-blocking)
  *
  * @param {object} params
  * @param {number} params.userId
@@ -65,13 +68,59 @@ function calculateScore(answers, gradeableQuestions) {
 async function onExamSubmitted({ userId, examId, answers }) {
   logger.info('[Automation][Exam] Processing submission', { userId, examId });
 
-  // 1. Load gradeable questions
+  // 1a. Fetch exam and validate it is still active
+  const exam = await examRepository.findById(examId);
+  if (!exam) {
+    const err = new Error('Exam not found');
+    err.statusCode = 404;
+    throw err;
+  }
+  if (!exam.is_active) {
+    const err = new Error('This exam is not currently active');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // 1b. Enforce end-time window: date + duration minutes
+  const examEndTime = new Date(exam.date).getTime() + exam.duration * 60 * 1000;
+  if (Date.now() > examEndTime) {
+    const err = new Error('Exam submission window has closed');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // 1c. Verify the student has access to this exam
+  const access = await examRepository.getAccess(userId, examId);
+  if (!access || !access.allowed) {
+    const err = new Error('You are not allowed to access this exam');
+    err.statusCode = 403;
+    throw err;
+  }
+
+  // 1d. Prevent re-submission
+  if (access.submitted_at) {
+    const err = new Error('You have already submitted this exam');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // 2. Atomically mark as submitted (the UPDATE WHERE submitted_at IS NULL guard
+  //    handles any race condition between concurrent requests)
+  const marked = await examRepository.markSubmitted(userId, examId);
+  if (!marked) {
+    // Another request won the race
+    const err = new Error('You have already submitted this exam');
+    err.statusCode = 409;
+    throw err;
+  }
+
+  // 3. Load gradeable questions
   const gradeableQuestions = await examRepository.findGradeableQuestions(examId);
 
-  // 2. Calculate score
+  // 4. Calculate score
   const { score, correct, total } = calculateScore(answers, gradeableQuestions);
 
-  // 3. Persist grade (upsert – student can only submit once, but re-submit is safe)
+  // 5. Persist grade
   let grade = null;
   if (score !== null) {
     const feedback = `Auto-graded: ${correct} / ${total} correct (${score}%)`;
@@ -90,12 +139,11 @@ async function onExamSubmitted({ userId, examId, answers }) {
     });
   }
 
-  // 4. Ensure attendance is marked present
+  // 6. Ensure attendance is marked present
   await attendanceRepository.upsert({ userId, examId, status: 'present' });
   logger.info('[Automation][Exam] Attendance marked present', { userId, examId });
 
-  // 5. Non-blocking absence check (in case this exam was the student's Nth absence
-  //    before submitting – edge case protection)
+  // 7. Non-blocking absence check
   notificationAutomation.checkAndAlertAbsences(userId).catch((err) =>
     logger.error('[Automation][Exam] Absence check failed post-submission', {
       userId,

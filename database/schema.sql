@@ -56,13 +56,15 @@ CREATE TABLE IF NOT EXISTS exam_access (
     allowed          BOOLEAN NOT NULL DEFAULT FALSE,
     entered_with_id  BOOLEAN NOT NULL DEFAULT FALSE,
     started_at       TIMESTAMP WITH TIME ZONE,
+    submitted_at     TIMESTAMP WITH TIME ZONE,
     created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(user_id, exam_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_exam_access_user_id  ON exam_access(user_id);
-CREATE INDEX IF NOT EXISTS idx_exam_access_exam_id  ON exam_access(exam_id);
+CREATE INDEX IF NOT EXISTS idx_exam_access_user_id      ON exam_access(user_id);
+CREATE INDEX IF NOT EXISTS idx_exam_access_exam_id      ON exam_access(exam_id);
+CREATE INDEX IF NOT EXISTS idx_exam_access_submitted_at ON exam_access(submitted_at) WHERE submitted_at IS NOT NULL;
 
 -- =============================================
 -- Attendance Table
@@ -170,6 +172,20 @@ CREATE TABLE IF NOT EXISTS exam_questions (
 
 CREATE INDEX IF NOT EXISTS idx_exam_questions_exam_id    ON exam_questions(exam_id);
 CREATE INDEX IF NOT EXISTS idx_exam_questions_sort_order ON exam_questions(sort_order);
+
+-- =============================================
+-- Session Progress Table
+-- =============================================
+CREATE TABLE IF NOT EXISTS session_progress (
+    id           SERIAL PRIMARY KEY,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_id   INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    completed_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_progress_user_id    ON session_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_session_progress_session_id ON session_progress(session_id);
 
 -- =============================================
 -- Lessons Table

@@ -12,7 +12,10 @@ const transporter = nodemailer.createTransport({
 });
 
 /**
- * Send an email
+ * Send an email directly via SMTP.
+ * This is the low-level transport used by both the queue worker and the
+ * direct-send fallback.  It is NOT meant to be called from business logic –
+ * use the higher-level helpers below (which route through the queue).
  */
 async function sendEmail({ to, subject, html, text }) {
   try {
@@ -30,6 +33,12 @@ async function sendEmail({ to, subject, html, text }) {
     throw err;
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Queue-aware helpers
+// Each helper builds the HTML then pushes a job to the email queue.
+// When Redis is unavailable the queue falls back to direct send.
+// ─────────────────────────────────────────────────────────────
 
 /**
  * Send student ID after registration
@@ -52,7 +61,8 @@ async function sendStudentIdEmail({ email, studentId, firstName, dashboardUrl })
       <p style="color: #64748b; font-size: 12px;">This is an automated message. Please do not reply.</p>
     </div>
   `;
-  return sendEmail({
+  const { enqueue } = require('./emailQueue');
+  return enqueue('welcome-email', {
     to: email,
     subject: 'Your Student ID - Registration Successful',
     html,
@@ -86,7 +96,8 @@ async function sendAbsenceAlertEmail({ adminEmails, studentName, studentId, abse
       <p style="color: #64748b; font-size: 12px;">This is an automated message. Please do not reply.</p>
     </div>
   `;
-  return sendEmail({
+  const { enqueue } = require('./emailQueue');
+  return enqueue('absence-alert', {
     to: adminEmails.join(', '),
     subject: `⚠️ Absence Alert: ${studentName} has ${absenceCount} absences`,
     html,
@@ -110,7 +121,8 @@ async function sendAnnouncementEmail({ email, firstName, title, body }) {
       <p style="color: #64748b; font-size: 12px;">This is an automated message. Please do not reply.</p>
     </div>
   `;
-  return sendEmail({ to: email, subject: `📢 Announcement: ${title}`, html });
+  const { enqueue } = require('./emailQueue');
+  return enqueue('announcement', { to: email, subject: `📢 Announcement: ${title}`, html });
 }
 
 module.exports = { sendEmail, sendStudentIdEmail, sendAbsenceAlertEmail, sendAnnouncementEmail };

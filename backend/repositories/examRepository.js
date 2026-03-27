@@ -84,6 +84,21 @@ class ExamRepository {
     return rows[0] || null;
   }
 
+  /**
+   * Mark a student's exam as submitted (prevents re-submission).
+   * Returns null if the record does not exist.
+   */
+  async markSubmitted(userId, examId) {
+    const { rows } = await pool.query(
+      `UPDATE exam_access
+       SET submitted_at = NOW()
+       WHERE user_id = $1 AND exam_id = $2 AND submitted_at IS NULL
+       RETURNING *`,
+      [userId, examId]
+    );
+    return rows[0] || null;
+  }
+
   async getExamStudents(examId) {
     const { rows } = await pool.query(
       `SELECT u.id, u.email, u.student_id, u.first_name, u.last_name,
