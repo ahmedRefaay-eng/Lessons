@@ -28,6 +28,9 @@ router.post('/:id/assign', requireAdmin, examController.assignStudents);
 // GET /exams/:id/students — get students assigned to exam (admin)
 router.get('/:id/students', requireAdmin, examController.getExamStudents);
 
+// POST /exams/:id/submit — student submits answers (auto-graded)
+router.post('/:id/submit', examController.submitExam);
+
 // GET /exams/:id/questions — get questions for an exam
 router.get('/:id/questions', examController.getQuestions);
 

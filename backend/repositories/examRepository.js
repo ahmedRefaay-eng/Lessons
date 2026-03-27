@@ -154,6 +154,39 @@ class ExamRepository {
     const { rowCount } = await pool.query('DELETE FROM exam_questions WHERE id = $1', [id]);
     return rowCount > 0;
   }
+
+  /**
+   * Find exams that have ended (date + duration < now) and still have
+   * assigned students who never entered (entered_with_id = FALSE).
+   * Used by the attendance automation to mark absentees.
+   */
+  async findExpiredWithPendingAbsentees() {
+    const { rows } = await pool.query(
+      `SELECT ea.user_id, ea.exam_id, e.title AS exam_title
+       FROM exam_access ea
+       JOIN exams e ON ea.exam_id = e.id
+       WHERE ea.entered_with_id = FALSE
+         AND ea.allowed = TRUE
+         AND (e.date + (e.duration || ' minutes')::interval) < NOW()`
+    );
+    return rows;
+  }
+
+  /**
+   * Find all gradeable questions (with a correct_answer) for an exam.
+   */
+  async findGradeableQuestions(examId) {
+    const { rows } = await pool.query(
+      `SELECT id, question_text, question_type, correct_answer, sort_order
+       FROM exam_questions
+       WHERE exam_id = $1
+         AND correct_answer IS NOT NULL
+         AND question_type IN ('mcq', 'true_false')
+       ORDER BY sort_order ASC`,
+      [examId]
+    );
+    return rows;
+  }
 }
 
 module.exports = new ExamRepository();

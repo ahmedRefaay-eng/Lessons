@@ -17,6 +17,8 @@ const adminRoutes = require('./routes/admin');
 const courseRoutes = require('./routes/courses');
 const sessionRoutes = require('./routes/sessions');
 const announcementRoutes = require('./routes/announcements');
+const automationRoutes = require('./routes/automation');
+const scheduler = require('./services/automation/scheduler');
 
 const app = express();
 
@@ -71,6 +73,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/announcements', announcementRoutes);
+app.use('/api/automation', automationRoutes);
 
 // ─────────────────────────────────────────
 // 404 Handler
@@ -108,6 +111,8 @@ const PORT = process.env.PORT || 5000;
 if (require.main === module) {
   app.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
+    // Start automation scheduler
+    scheduler.start();
   });
 }
 

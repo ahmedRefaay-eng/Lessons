@@ -154,6 +154,33 @@ const createQuestionValidation = [
   body('question_type').optional().isIn(['text', 'mcq', 'true_false']).withMessage('Invalid question type'),
 ];
 
+// Submit exam answers (student – auto-graded)
+async function submitExam(req, res, next) {
+  try {
+    const examId = parseInt(req.params.id, 10);
+    const { answers } = req.body; // array of { questionId, answer }
+
+    if (!Array.isArray(answers)) {
+      return res.status(422).json({ message: 'answers must be an array of { questionId, answer }' });
+    }
+
+    const { onExamSubmitted } = require('../services/automation/examAutomation');
+    const result = await onExamSubmitted({ userId: req.user.id, examId, answers });
+
+    res.json({
+      message: 'Exam submitted successfully',
+      score: result.score,
+      correct: result.correct,
+      total: result.total,
+      grade: result.grade,
+      autoGraded: result.score !== null,
+    });
+  } catch (err) {
+    if (err.statusCode) return res.status(err.statusCode).json({ message: err.message });
+    next(err);
+  }
+}
+
 module.exports = {
   getAll,
   create: [upload.single('file'), createValidation, validate, create],
@@ -166,4 +193,5 @@ module.exports = {
   createQuestion: [createQuestionValidation, validate, createQuestion],
   updateQuestion,
   deleteQuestion,
+  submitExam,
 };

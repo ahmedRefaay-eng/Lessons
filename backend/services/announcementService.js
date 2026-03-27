@@ -1,4 +1,6 @@
 const announcementRepository = require('../repositories/announcementRepository');
+const { broadcastAnnouncement } = require('./automation/notificationAutomation');
+const logger = require('../utils/logger');
 
 class AnnouncementService {
   async getAll(isAdmin = false) {
@@ -16,7 +18,17 @@ class AnnouncementService {
   }
 
   async create({ title, body, createdBy }) {
-    return announcementRepository.create({ title, body, createdBy });
+    const announcement = await announcementRepository.create({ title, body, createdBy });
+
+    // Non-blocking: broadcast email to all students
+    broadcastAnnouncement(announcement.id).catch((err) =>
+      logger.error('[AnnouncementService] Broadcast failed', {
+        announcementId: announcement.id,
+        error: err.message,
+      })
+    );
+
+    return announcement;
   }
 
   async update(id, fields) {
@@ -26,7 +38,19 @@ class AnnouncementService {
       err.statusCode = 404;
       throw err;
     }
-    return announcementRepository.update(id, fields);
+    const updated = await announcementRepository.update(id, fields);
+
+    // If being published for the first time, broadcast
+    if (fields.is_published === true && !announcement.is_published) {
+      broadcastAnnouncement(id).catch((err) =>
+        logger.error('[AnnouncementService] Broadcast on publish failed', {
+          announcementId: id,
+          error: err.message,
+        })
+      );
+    }
+
+    return updated;
   }
 
   async delete(id) {

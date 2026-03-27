@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const userRepository = require('../repositories/userRepository');
 const { generateStudentId } = require('../utils/studentId');
-const { sendStudentIdEmail } = require('../utils/mailer');
+const { onUserRegistered } = require('./automation/registrationAutomation');
 const logger = require('../utils/logger');
 
 class AuthService {
@@ -37,9 +37,9 @@ class AuthService {
       lastName,
     });
 
-    // Send welcome email (non-blocking)
-    sendStudentIdEmail({ email, studentId, firstName }).catch((err) =>
-      logger.error('Failed to send welcome email', err)
+    // Fire-and-forget: registration automation (welcome email + dashboard URL)
+    onUserRegistered({ email, studentId, firstName }).catch((err) =>
+      logger.error('[AuthService] Registration automation failed', { email, error: err.message })
     );
 
     const token = this._generateToken(user);

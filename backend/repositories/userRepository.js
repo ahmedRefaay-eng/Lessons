@@ -52,6 +52,13 @@ class UserRepository {
     return rows.map((r) => r.email);
   }
 
+  async findAllStudentEmails() {
+    const { rows } = await pool.query(
+      "SELECT id, email, first_name, last_name, student_id FROM users WHERE role = 'student' AND is_active = TRUE"
+    );
+    return rows;
+  }
+
   async update(id, fields) {
     const allowed = ['first_name', 'last_name', 'is_active', 'password', 'role'];
     const keys = Object.keys(fields).filter((k) => allowed.includes(k));
