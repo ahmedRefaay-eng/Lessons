@@ -14,6 +14,9 @@ const attendanceRoutes = require('./routes/attendance');
 const gradeRoutes = require('./routes/grades');
 const lessonRoutes = require('./routes/lessons');
 const adminRoutes = require('./routes/admin');
+const courseRoutes = require('./routes/courses');
+const sessionRoutes = require('./routes/sessions');
+const announcementRoutes = require('./routes/announcements');
 
 const app = express();
 
@@ -65,6 +68,9 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/grades', gradeRoutes);
 app.use('/api/lessons', lessonRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/courses', courseRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/announcements', announcementRoutes);
 
 // ─────────────────────────────────────────
 // 404 Handler

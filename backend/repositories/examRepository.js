@@ -23,18 +23,18 @@ class ExamRepository {
     return rows;
   }
 
-  async create({ title, description, date, duration, isActive, createdBy }) {
+  async create({ title, description, date, duration, isActive, createdBy, fileUrl, fileName, mimeType }) {
     const { rows } = await pool.query(
-      `INSERT INTO exams (title, description, date, duration, is_active, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO exams (title, description, date, duration, is_active, created_by, file_url, file_name, mime_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [title, description || null, date, duration, isActive || false, createdBy]
+      [title, description || null, date, duration, isActive || false, createdBy, fileUrl || null, fileName || null, mimeType || null]
     );
     return rows[0];
   }
 
   async update(id, fields) {
-    const allowed = ['title', 'description', 'date', 'duration', 'is_active'];
+    const allowed = ['title', 'description', 'date', 'duration', 'is_active', 'file_url', 'file_name', 'mime_type'];
     const keys = Object.keys(fields).filter((k) => allowed.includes(k));
     if (keys.length === 0) return null;
     const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
@@ -115,6 +115,44 @@ class ExamRepository {
     } finally {
       client.release();
     }
+  }
+
+  // Questions
+  async getQuestions(examId) {
+    const { rows } = await pool.query(
+      'SELECT * FROM exam_questions WHERE exam_id = $1 ORDER BY sort_order ASC, id ASC',
+      [examId]
+    );
+    return rows;
+  }
+
+  async createQuestion({ examId, questionText, questionType, options, correctAnswer, sortOrder }) {
+    const { rows } = await pool.query(
+      `INSERT INTO exam_questions (exam_id, question_text, question_type, options, correct_answer, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [examId, questionText, questionType || 'text', options ? JSON.stringify(options) : null, correctAnswer || null, sortOrder || 0]
+    );
+    return rows[0];
+  }
+
+  async updateQuestion(id, fields) {
+    const allowed = ['question_text', 'question_type', 'options', 'correct_answer', 'sort_order'];
+    const keys = Object.keys(fields).filter((k) => allowed.includes(k));
+    if (keys.length === 0) return null;
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = keys.map((k) => (k === 'options' && fields[k] ? JSON.stringify(fields[k]) : fields[k]));
+    values.push(id);
+    const { rows } = await pool.query(
+      `UPDATE exam_questions SET ${setClause} WHERE id = $${keys.length + 1} RETURNING *`,
+      values
+    );
+    return rows[0] || null;
+  }
+
+  async deleteQuestion(id) {
+    const { rowCount } = await pool.query('DELETE FROM exam_questions WHERE id = $1', [id]);
+    return rowCount > 0;
   }
 }
 

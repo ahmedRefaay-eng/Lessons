@@ -2,6 +2,7 @@ const userRepository = require('../repositories/userRepository');
 const attendanceRepository = require('../repositories/attendanceRepository');
 const gradeRepository = require('../repositories/gradeRepository');
 const examRepository = require('../repositories/examRepository');
+const authService = require('./authService');
 
 class AdminService {
   async getUsers({ role } = {}) {
@@ -50,6 +51,33 @@ class AdminService {
       throw err;
     }
     return userRepository.update(userId, { is_active: !user.is_active });
+  }
+
+  async createAdmin({ email, password, firstName, lastName }) {
+    const { user } = await authService.register({
+      email,
+      password,
+      firstName,
+      lastName,
+      role: 'admin',
+    });
+    return user;
+  }
+
+  async changeUserRole(userId, newRole) {
+    const validRoles = ['student', 'admin'];
+    if (!validRoles.includes(newRole)) {
+      const err = new Error('Invalid role. Must be "student" or "admin"');
+      err.statusCode = 422;
+      throw err;
+    }
+    const user = await userRepository.findById(userId);
+    if (!user) {
+      const err = new Error('User not found');
+      err.statusCode = 404;
+      throw err;
+    }
+    return userRepository.update(userId, { role: newRole });
   }
 }
 
