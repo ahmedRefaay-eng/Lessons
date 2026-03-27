@@ -3,7 +3,9 @@ const adminService = require('../services/adminService');
 async function getUsers(req, res, next) {
   try {
     const { role } = req.query;
-    const users = await adminService.getUsers(role ? { role } : undefined);
+    const validRoles = ['student', 'admin'];
+    const safeRole = role && validRoles.includes(role) ? role : undefined;
+    const users = await adminService.getUsers(safeRole ? { role: safeRole } : undefined);
     res.json({ users });
   } catch (err) {
     next(err);

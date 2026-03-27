@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api';
-import { Card, Alert, Spinner, Table } from '../../components/UI';
+import { Card, Alert, Spinner } from '../../components/UI';
 
 export default function LessonsPage() {
   const [lessons, setLessons] = useState([]);

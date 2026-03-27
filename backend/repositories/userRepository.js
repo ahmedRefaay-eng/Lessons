@@ -53,7 +53,8 @@ class UserRepository {
   }
 
   async update(id, fields) {
-    const keys = Object.keys(fields);
+    const allowed = ['first_name', 'last_name', 'is_active', 'password'];
+    const keys = Object.keys(fields).filter((k) => allowed.includes(k));
     if (keys.length === 0) return null;
     const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
     const values = keys.map((k) => fields[k]);
